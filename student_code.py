@@ -161,30 +161,20 @@ class InferenceEngine(object):
         """
         printv('Attempting to infer from {!r} and {!r} => {!r}', 1, verbose,
             [fact.statement, rule.lhs, rule.rhs])
-        ####################################################
-        # Student code goes here
-        b = match(fact.statement, rule.lhs[0])
-        if b == False or len(rule.lhs) == 0:
-            return
 
-        # if only 1 lhs, infer new fact
-        if len(rule.lhs) == 1:
-            newfact = Fact(instantiate(rule.rhs, b), [[fact,rule]])
-            #print newfact
-            rule.supports_facts.append(newfact)
-            fact.supports_facts.append(newfact)
-            kb.kb_add(newfact)
-            #newfact.supported_by.append([fact,rule])
-
-        # if more than 1 lhs, infer new rule
-        else:
-            lhs1 = []
-            nrule = []
-            for i in range(1, len(rule.lhs)):
-                lhs1.append(instantiate(rule.lhs[i], b))
-            nrule.append(lhs1)
-            nrule.append(instantiate(rule.rhs, b))
-            newrule = Rule(nrule,[[fact, rule]])
-            rule.supports_rules.append(newrule)
-            fact.supports_rules.append(newrule)
-            kb.kb_add(newrule)
+        bindings = match(fact.statement, rule.lhs[0])
+        if bindings:
+            if len(rule.lhs) > 1:
+                new_rhs = instantiate(rule.rhs, bindings)
+                new_lhs = [instantiate(i, bindings) for i in rule.lhs[1:]]
+                new_rule = Rule([new_lhs, new_rhs], [[fact, rule]])
+                fact.supports_rules.append(new_rule)
+                rule.supports_rules.append(new_rule)
+                kb.kb_assert(new_rule)
+            else:
+                new_rhs = instantiate(rule.rhs, bindings)
+                new_fact = Fact(new_rhs, [[fact, rule]])
+                fact.supports_facts.append(new_fact)
+                rule.supports_facts.append(new_fact)
+                kb.kb_assert(new_fact)
+        return

@@ -118,6 +118,9 @@ class KnowledgeBase(object):
         """
         printv("Retracting {!r}", 0, verbose, [fact_or_rule])
 
+        # if fact is unsupported, retract it from all of the facts and rules that it
+        # supported and remove the fact from the Knowledge Base
+        
         if isinstance(fact_or_rule, Fact): 
             if fact_or_rule in self.facts: 
                 fact = self._get_fact(fact_or_rule) 
@@ -133,6 +136,9 @@ class KnowledgeBase(object):
                         self.kb_retract(supported_rule) 
                     self.facts.remove(fact) 
 
+        # if rule is not an asserted rule, remove the rule from all of the facts and rules that support it
+        # and retract the rule from all facts and rules that it supported
+        
         elif isinstance(fact_or_rule, Rule): 
             if fact_or_rule in self.facts: 
                 rule = self._get_rule(fact_or_rule) 
@@ -164,6 +170,8 @@ class InferenceEngine(object):
 
         bindings = match(fact.statement, rule.lhs[0])
         if bindings:
+            # if multiple statements on LHS, make new RHS and LHS 
+            # connect supporting facts and rules to the new rule
             if len(rule.lhs) > 1:
                 new_rhs = instantiate(rule.rhs, bindings)
                 new_lhs = [instantiate(i, bindings) for i in rule.lhs[1:]]
@@ -171,6 +179,9 @@ class InferenceEngine(object):
                 fact.supports_rules.append(new_rule)
                 rule.supports_rules.append(new_rule)
                 kb.kb_assert(new_rule)
+
+            # if there isn't multiple statements on LHS, add 
+            # a new fact to infer and update supporting facts and rules
             else:
                 new_rhs = instantiate(rule.rhs, bindings)
                 new_fact = Fact(new_rhs, [[fact, rule]])

@@ -22,10 +22,8 @@ class KnowledgeBase(object):
     def _get_fact(self, fact):
         """INTERNAL USE ONLY
         Get the fact in the KB that is the same as the fact argument
-
         Args:
             fact (Fact): Fact we're searching for
-
         Returns:
             Fact: matching fact
         """
@@ -36,10 +34,8 @@ class KnowledgeBase(object):
     def _get_rule(self, rule):
         """INTERNAL USE ONLY
         Get the rule in the KB that is the same as the rule argument
-
         Args:
             rule (Rule): Rule we're searching for
-
         Returns:
             Rule: matching rule
         """
@@ -84,7 +80,6 @@ class KnowledgeBase(object):
 
     def kb_assert(self, fact_rule):
         """Assert a fact or rule into the KB
-
         Args:
             fact_rule (Fact or Rule): Fact or Rule we're asserting
         """
@@ -93,10 +88,8 @@ class KnowledgeBase(object):
 
     def kb_ask(self, fact):
         """Ask if a fact is in the KB
-
         Args:
             fact (Fact) - Statement to be asked (will be converted into a Fact)
-
         Returns:
             listof Bindings|False - list of Bindings if result found, False otherwise
         """
@@ -116,29 +109,53 @@ class KnowledgeBase(object):
             print("Invalid ask:", fact.statement)
             return []
 
-    def kb_retract(self, fact):
+    def kb_retract(self, fact_or_rule):
         """Retract a fact from the KB
-
         Args:
             fact (Fact) - Fact to be retracted
-
         Returns:
             None
         """
-        printv("Retracting {!r}", 0, verbose, [fact])
-        ####################################################
-        # Student code goes here
-        
+        printv("Retracting {!r}", 0, verbose, [fact_or_rule])
+
+        if isinstance(fact_or_rule, Fact): 
+            if fact_or_rule in self.facts: 
+                fact = self._get_fact(fact_or_rule) 
+                if not fact.supported_by:
+                    for supporting in fact.supported_by:
+                        for i in supporting:
+                            i.supports_facts.remove(fact)
+                    for supported_fact in fact.supports_facts:
+                        supported_fact.supported_by = [x for x in supported_fact.supported_by if x[0]!=fact]
+                        self.kb_retract(supported_fact) 
+                    for supported_rule in fact.supports_rules:
+                        supported_rule.supported_by = [x for x in supported_rule.supported_by if x[0]!=fact]
+                        self.kb_retract(supported_rule) 
+                    self.facts.remove(fact) 
+
+        elif isinstance(fact_or_rule, Rule): 
+            if fact_or_rule in self.facts: 
+                rule = self._get_rule(fact_or_rule) 
+                if not ruleRetract.asserted: 
+                    for supporting in rule.supported_by:
+                        for i in supporting:
+                            i.supports_rules.remove(rule) 
+                    for supported_rule in rule.supports_rules:
+                        supported_rule.supported_by = [x for x in supported_rule.supported_by if x[1]!=rule]
+                        self.kb_retract(supported_rule)
+                    for supported_fact in rule.supports_facts:
+                        supported_fact.supported_by = [x for x in supported_fact.supported_by if x[1]!=rule]
+                        self.kb_retract(supported_fact) 
+                    self.rules.remove(rule)
+
 
 class InferenceEngine(object):
     def fc_infer(self, fact, rule, kb):
         """Forward-chaining to infer new facts and rules
-
         Args:
             fact (Fact) - A fact from the KnowledgeBase
             rule (Rule) - A rule from the KnowledgeBase
             kb (KnowledgeBase) - A KnowledgeBase
-
         Returns:
             Nothing            
         """
@@ -146,3 +163,28 @@ class InferenceEngine(object):
             [fact.statement, rule.lhs, rule.rhs])
         ####################################################
         # Student code goes here
+        b = match(fact.statement, rule.lhs[0])
+        if b == False or len(rule.lhs) == 0:
+            return
+
+        # if only 1 lhs, infer new fact
+        if len(rule.lhs) == 1:
+            newfact = Fact(instantiate(rule.rhs, b), [[fact,rule]])
+            #print newfact
+            rule.supports_facts.append(newfact)
+            fact.supports_facts.append(newfact)
+            kb.kb_add(newfact)
+            #newfact.supported_by.append([fact,rule])
+
+        # if more than 1 lhs, infer new rule
+        else:
+            lhs1 = []
+            nrule = []
+            for i in range(1, len(rule.lhs)):
+                lhs1.append(instantiate(rule.lhs[i], b))
+            nrule.append(lhs1)
+            nrule.append(instantiate(rule.rhs, b))
+            newrule = Rule(nrule,[[fact, rule]])
+            rule.supports_rules.append(newrule)
+            fact.supports_rules.append(newrule)
+            kb.kb_add(newrule)
